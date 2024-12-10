@@ -1,11 +1,76 @@
 import pandas as pd
-import numpy as np
-import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pandas.plotting import scatter_matrix
 from windrose import WindroseAxes
 
+datasets = {
+    '1': './data/benin-malanville.csv',          
+    '2': './data/sierraleone-bumbuna.csv',   
+    '3': './data/togo-dapaong_qc.csv'           
+}
+
+def menu():
+    print("\nChoose which dataset you want to analyze:")
+    print("1. Analyze Benin Dataset")
+    print("2. Analyze Sierra Leone Dataset")
+    print("3. Analyze Togo Dataset")
+
+    data_choice = input("\nEnter your choice (1/2/3): ").strip()
+    if data_choice not in datasets:
+        print("Invalid choice. Exiting.")
+        return
+    # Load the dataset once
+    dataset_path = datasets[data_choice]
+    try:
+        data = pd.read_csv(dataset_path)
+        print("\nDataset loaded successfully")
+        print("\nChoose what you want to do :")
+        print("1. Summary Statistics")
+        print("2. Data Quality Check")
+        print("3. Time Series Analysis")
+        print("4. Correlation Analysis:")
+        print("5. Wind Analysis")
+        print("6. Temperature Analysis")
+        print("7. Histograms")
+        print("8. Z-Score Analysis")
+        print("9. Bubble charts")
+        print("10. Data Cleaning")
+
+        task_choice = input("\nEnter your choice (1-10): ").strip()
+        task_choice = int(task_choice)
+        if 1 <= task_choice <= 10:
+            match task_choice:
+                case 1:
+                    summary_stat(data)
+                case 2:
+                   quality_check(data)
+                case 3:
+                   time_series_analysis(data)
+                case 4:
+                    correlation_analysis(data)
+                case 5:
+                    wind_analysis(data)
+                case 6:
+                    print("Temperature Analysis Task")
+                    temp_analysis(data)
+                case 7:
+                    histogram(data)
+                case 8:
+                    Z_score_analysis(data)
+                case 9:
+                    bubble_analysis(data)
+                case 10:
+                    data_cleaning(data)
+                case _:
+                    print("Invalid task choice.")
+        else: 
+            print("Invalid task choice. Please enter a number between 1 and 10.")
+
+    except Exception as e:
+        print("\nError reading dataset: {e}")
+        return None
+          
 def summary_stat(data):
     print("\nSummary Statistics:")
     print(data.info())
@@ -234,21 +299,5 @@ def data_cleaning(data):
     data = data.dropna(axis=1, how='all')
     print("Remaining Columns after dropping nulls:\n", data.columns)
 
-data = pd.read_csv("./data/benin-malanville.csv") 
-# Check if the DataFrame has been loaded properly:
-if data is not None and not data.empty:
-    print('File Uploaded properly')
-    summary_stat(data)
-    # quality_check(data)
-    # time_series_analysis(data)
-    # correlation_analysis(data)
-    # wind_analysis(data)
-    # temp_analysis(data)
-    # histogram(data)
-    # Z_score_analysis(data)
-    # bubble_analysis(data)
-    # data_cleaning(data)
-else:
-    print('Failed to upload the file or file is empty')
-    sys.exit()
-  
+
+menu()
