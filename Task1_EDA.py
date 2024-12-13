@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 from pandas.plotting import scatter_matrix
 from windrose import WindroseAxes
 
@@ -74,6 +75,7 @@ def menu():
 def summary_stat(data):
     print("\nSummary Statistics:")
     print(data.info())
+    print("shape: ", data.shape)
     summary_stats = data.describe()
     print("Summary Statistics:\n", summary_stats)
     columns = data.columns.tolist()
@@ -101,14 +103,15 @@ def quality_check(data):
     dni_invalid = data[data['DNI'] < 0]
     dhi_invalid = data[data['DHI'] < 0]
 
-    print("\nInvalid GHI Entries:\n", ghi_invalid)
-    print("\nInvalid DNI Entries:\n", dni_invalid)
-    print("\nInvalid DHI Entries:\n", dhi_invalid)
-    
+    # Prints the number of rows with invalid GHI values
+    print("\nInvalid GHI Entries: ", ghi_invalid.shape)  
+    print("\nInvalid DNI Entries :", dni_invalid.shape)
+    print("\nInvalid DHI Entries:", dhi_invalid.shape)
+
     ghi_outliers = detect_outliers(data['GHI'])
     dni_outliers = detect_outliers(data['DNI'])
     dhi_outliers = detect_outliers(data['DHI'])
-    
+
     print("\nOutliers in GHI:\n", ghi_outliers)
     print("\nOutliers in DNI:\n", dni_outliers)
     print("\nOutliers in DHI:\n", dhi_outliers)
@@ -118,11 +121,17 @@ def quality_check(data):
     modb_outliers = detect_outliers(data['ModB'])
     ws_outliers = detect_outliers(data['WS'])
     wsgust_outliers = detect_outliers(data['WSgust'])
-
+  
     print("\nOutliers in ModA:\n", moda_outliers)
     print("\nOutliers in ModB:\n", modb_outliers)
     print("\nOutliers in WS:\n", ws_outliers)
     print("\nOutliers in WSgust:\n", wsgust_outliers)
+
+    # Boxplots for visual outlier detection
+    plt.figure(figsize=(12, 8))
+    sns.boxplot(data=data[['GHI', 'DNI', 'DHI', 'ModA', 'ModB', 'WS', 'WSgust']], orient='h', palette='coolwarm')
+    plt.title("Boxplot of Key Variables")
+    plt.show()
 
 def detect_outliers(column):
     Q1 = column.quantile(0.25)
@@ -190,7 +199,7 @@ def correlation_analysis(data):
     # Scatter Matrix for Wind Conditions and Solar Irradiance
     wind_solar_columns = ['GHI', 'DNI', 'DHI', 'WS', 'WSgust', 'WD']
     scatter_data = data[wind_solar_columns].dropna()
-    plt.figure(figsize=(12, 8))
+    scatter_data = scatter_data.sample(n=min(len(scatter_data), 500), random_state=42)
     scatter_matrix(scatter_data, figsize=(12, 8), alpha=0.7, diagonal='hist')
     plt.suptitle("Scatter Matrix: Wind Conditions and Solar Irradiance")
     
@@ -270,16 +279,15 @@ def bubble_analysis(data):
     # Select relevant columns and drop missing values
     bubble_data = data[['GHI', 'Tamb', 'WS', 'RH', 'BP']].dropna()
     # Assign variables for axes and bubble size
-    x = bubble_data['GHI']  # X-axis
-    y = bubble_data['Tamb']  # Y-axis
-    bubble_size = bubble_data['RH']  # Bubble size (e.g., Relative Humidity)
-    color = bubble_data['WS']  # Bubble color (e.g., Wind Speed)
+    x = bubble_data['GHI'] 
+    y = bubble_data['Tamb']  
+    bubble_size = bubble_data['RH']  
+    color = bubble_data['WS']  
 
     plt.figure(figsize=(12, 8))
 
     # Bubble chart
     scatter = plt.scatter(x, y, s=bubble_size * 10, c=color, cmap='viridis', alpha=0.7, edgecolor='black')
-    # Add a color bar for wind speed
     cbar = plt.colorbar(scatter)
     cbar.set_label('Wind Speed (WS)')
 
@@ -291,13 +299,46 @@ def bubble_analysis(data):
     plt.show()
 
 def data_cleaning(data):
-    # Check for missing values in each column
-    missing_summary = data.isnull().sum()
-    print("Missing Values:\n", missing_summary)
+    print("\n Data Cleaning Process:")
 
-    # Drop entirely null columns
-    data = data.dropna(axis=1, how='all')
-    print("Remaining Columns after dropping nulls:\n", data.columns)
+    # Identify and drop columns with all null values
+    null_columns = data.columns[data.isnull().all()]
+    if not null_columns.empty:
+        print("\nColumns entirely null and dropped: {list(null_columns)}")
+        data = data.drop(columns=null_columns)
+
+     # Handle missing values in numeric columns
+    numeric_cols = data.select_dtypes(include=['number']).columns
+    for col in numeric_cols:
+        missing_count = data[col].isnull().sum()
+        if missing_count > 0:
+            median_value = data[col].median()
+            print("\nFilling {missing_count} missing values in '{col}' with median value: {median_value}")
+            data[col] = data[col].fillna(median_value)
+
+    # Handle missing values in categorical columns
+    categorical_cols = data.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        missing_count = data[col].isnull().sum()
+        if missing_count > 0:
+            mode_value = data[col].mode()[0] if not data[col].mode().empty else "Unknown"
+            print("\nFilling {missing_count} missing values in '{col}' with mode value: {mode_value}")
+            data[col] = data[col].fillna(mode_value)
+
+    # Handle outliers in numeric columns using Z-score method
+    from scipy.stats import zscore
+    z_scores = data[numeric_cols].apply(zscore, nan_policy='omit')
+    outliers = (z_scores.abs() > 3)
+    for col in numeric_cols:
+        outlier_count = outliers[col].sum()
+        if outlier_count > 0:
+            print(f"Handling {outlier_count} outliers in '{col}'")
+            upper_limit = data[col].quantile(0.99)
+            lower_limit = data[col].quantile(0.01)
+            data[col] = data[col].clip(lower=lower_limit, upper=upper_limit)
 
 
 menu()
+
+
+
